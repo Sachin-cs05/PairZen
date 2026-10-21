@@ -1,36 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pairzen
 
-## Getting Started
+> **Tagline:** Code together. Think beyond.
 
-First, run the development server:
+Pairzen is a premium, real-time collaborative coding interview platform designed for engineering teams and interviewers. It enables simultaneous multi-cursor pair programming, sandboxed code execution, structured assessment rubrics, and playback telemetry in a sleek, developer-focused environment.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Current Status: Phase 1 (Foundation & Premium UI)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Phase 1 establishes the complete frontend foundation, architecture, brand identity, design token system, and responsive UI for both the public landing page and the interview management dashboard.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Phase 1 Scope (Implemented):
+- **Brand Identity & Design System**: Custom SVG mark and typography, dark navy palette (`#0B1020`), surface tokens (`#121A2B`), electric violet accents (`#8B5CF6`), and sky blue highlights (`#38BDF8`).
+- **Public Landing Page (`/`)**:
+  - Sticky glassmorphic navbar with mobile navigation drawer.
+  - Value-driven hero section with brand pillars.
+  - Interactive dual-collaborator IDE preview showcasing multi-cursor editing, presence indicators, problem drawer, and executable test suite simulations.
+  - Comprehensive feature breakdown (Real-time sync, Shared rooms, Sandboxed execution, Standardized scoring).
+  - Clear 3-step technical workflow ("How It Works").
+  - Architecture roadmap & blueprint comparison.
+  - Professional footer with status and legal links.
+- **Dashboard (`/dashboard`)**:
+  - Collapsible desktop sidebar and mobile drawer with Pairzen branding and workspace navigation.
+  - Top header with global search, unread notification center dropdown, quick creation action, and user profile menu.
+  - Welcome banner with session summaries and quick interview creation/joining affordances.
+  - Real-time statistics cards (Total interviews, Completed sessions, Upcoming sessions, Average duration).
+  - Quick action shortcuts (Instant Room, Question Library, Evaluation Rubrics, System Diagnostics).
+  - Filterable interview table with search query filtering, status tabs ("All", "Live Now", "Scheduled", "Completed"), copyable room codes, and session inspection modal.
+- **Reusable Component Library**:
+  - Buttons (`primary`, `secondary`, `outline`, `ghost`, `danger`, `subtle`)
+  - Badges & Status Indicators
+  - Cards & Statistics containers
+  - Inputs & Select controls
+  - Accessible Modals / Dialogs (with ESC and backdrop handling)
+  - Dropdown menus with item actions and separators
+  - Avatar with fallback initials and status indicators
+  - Empty states with action triggers
+  - Tabs with count badges
+- **Types & Mock Data Layer**: Strict TypeScript models (`InterviewSession`, `DashboardStats`, `UserNotification`) with isolated mock repositories ready to be swapped with API endpoints.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Features Intentionally Deferred to Future Phases
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Per Phase 1 scope restrictions, the following are not implemented in Phase 1 and are architectural targets for subsequent phases:
+- **Phase 2**:
+  - Socket.IO server & WebSockets for bidirectional editor synchronizer
+  - Monaco Editor (VS Code core) integration with syntax tree AST binding
+  - Multi-cursor CRDT/OT collaborative state management
+  - WebRTC live audio/video presence streams
+- **Phase 3**:
+  - Node.js / Express backend service
+  - MongoDB database schemas & Mongoose data models
+  - User authentication, JWT sessions, and RBAC (Interviewer vs. Candidate vs. Admin)
+  - Sandboxed remote code runner (gVisor/Docker runner worker)
+  - Question bank persistence and customizable rubric scoring exports
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Technology Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Framework**: Next.js 16 (App Router with Turbopack)
+- **Language**: TypeScript 5 (Strict type checking enabled)
+- **Styling**: Tailwind CSS v4 with bespoke token variables
+- **Icons**: Lucide React
+- **Component Model**: React Server Components by default; client components (`"use client"`) only for interactive controls (modals, dropdowns, tabs, sidebar).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Prerequisites
+
+- **Node.js**: v20+ (tested and verified on Node v24.11.1)
+- **npm**: v10+ (tested on npm 11.6.2)
+
+---
+
+## Installation & Setup
+
+1. **Clone the repository** (or navigate to workspace directory):
+   ```bash
+   git clone <repo-url>
+   cd Pairzen
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Run the local development server**:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+4. **Run TypeScript check**:
+   ```bash
+   npx tsc --noEmit
+   ```
+
+5. **Run production build**:
+   ```bash
+   npm run build
+   ```
+
+6. **Start production server**:
+   ```bash
+   npm run start
+   ```
+
+---
+
+## Routes
+
+| Route | Purpose | Status |
+|---|---|---|
+| `/` | Public Landing Page, Product Workspace Preview, Capabilities, Workflow | Complete |
+| `/dashboard` | Interviewer Management Dashboard, Stats, Sessions Table, Creation Modal | Complete |
+
+---
+
+## License
+
+Copyright © 2026 Pairzen Inc. All rights reserved.
+# PairZen
