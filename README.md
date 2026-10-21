@@ -6,121 +6,139 @@ Pairzen is a premium, real-time collaborative coding interview platform designed
 
 ---
 
-## Current Status: Phase 1 (Foundation & Premium UI)
+## Status & Progress
 
-Phase 1 establishes the complete frontend foundation, architecture, brand identity, design token system, and responsive UI for both the public landing page and the interview management dashboard.
-
-### Phase 1 Scope (Implemented):
-- **Brand Identity & Design System**: Custom SVG mark and typography, dark navy palette (`#0B1020`), surface tokens (`#121A2B`), electric violet accents (`#8B5CF6`), and sky blue highlights (`#38BDF8`).
-- **Public Landing Page (`/`)**:
-  - Sticky glassmorphic navbar with mobile navigation drawer.
-  - Value-driven hero section with brand pillars.
-  - Interactive dual-collaborator IDE preview showcasing multi-cursor editing, presence indicators, problem drawer, and executable test suite simulations.
-  - Comprehensive feature breakdown (Real-time sync, Shared rooms, Sandboxed execution, Standardized scoring).
-  - Clear 3-step technical workflow ("How It Works").
-  - Architecture roadmap & blueprint comparison.
-  - Professional footer with status and legal links.
-- **Dashboard (`/dashboard`)**:
-  - Collapsible desktop sidebar and mobile drawer with Pairzen branding and workspace navigation.
-  - Top header with global search, unread notification center dropdown, quick creation action, and user profile menu.
-  - Welcome banner with session summaries and quick interview creation/joining affordances.
-  - Real-time statistics cards (Total interviews, Completed sessions, Upcoming sessions, Average duration).
-  - Quick action shortcuts (Instant Room, Question Library, Evaluation Rubrics, System Diagnostics).
-  - Filterable interview table with search query filtering, status tabs ("All", "Live Now", "Scheduled", "Completed"), copyable room codes, and session inspection modal.
-- **Reusable Component Library**:
-  - Buttons (`primary`, `secondary`, `outline`, `ghost`, `danger`, `subtle`)
-  - Badges & Status Indicators
-  - Cards & Statistics containers
-  - Inputs & Select controls
-  - Accessible Modals / Dialogs (with ESC and backdrop handling)
-  - Dropdown menus with item actions and separators
-  - Avatar with fallback initials and status indicators
-  - Empty states with action triggers
-  - Tabs with count badges
-- **Types & Mock Data Layer**: Strict TypeScript models (`InterviewSession`, `DashboardStats`, `UserNotification`) with isolated mock repositories ready to be swapped with API endpoints.
+- **Phase 1: Foundation & Premium UI** — Completed ✅
+- **Phase 2: Secure Authentication & User Profiles** — Completed ✅
+- **Phase 3: Real-Time Collaborative Workspace & Room Engine** — Next Phase 🚀
 
 ---
 
-## Features Intentionally Deferred to Future Phases
+## Phase 2: Implemented Authentication & Profile System
 
-Per Phase 1 scope restrictions, the following are not implemented in Phase 1 and are architectural targets for subsequent phases:
-- **Phase 2**:
-  - Socket.IO server & WebSockets for bidirectional editor synchronizer
-  - Monaco Editor (VS Code core) integration with syntax tree AST binding
-  - Multi-cursor CRDT/OT collaborative state management
-  - WebRTC live audio/video presence streams
-- **Phase 3**:
-  - Node.js / Express backend service
-  - MongoDB database schemas & Mongoose data models
-  - User authentication, JWT sessions, and RBAC (Interviewer vs. Candidate vs. Admin)
-  - Sandboxed remote code runner (gVisor/Docker runner worker)
-  - Question bank persistence and customizable rubric scoring exports
+Phase 2 establishes persistent user accounts in MongoDB, secure password hashing, opaque revocable session management, role-based authorization foundations, and authenticated routes.
+
+### Key Implemented Features:
+1. **Persistent MongoDB User & Session Models**:
+   - `User`: Unique normalized email index, trimmed names, bcrypt password hash (`select: false`), role (`user`, `interviewer`, `admin`), avatar URL, account status, and automatic timestamps.
+   - `Session`: Hashed session tokens (SHA-256) stored in database, user reference, user agent, IP, and automatic MongoDB TTL expiration index (`expires: 0`).
+2. **Security & Session Architecture**:
+   - **Password Hashing**: Bcrypt with 12 salt rounds. Plaintext passwords are never stored, logged, or returned.
+   - **Opaque Server-Side Sessions**: 32-byte cryptographically secure random session tokens (`crypto.randomBytes(32)`).
+   - **Token Hashing at Rest**: Raw tokens are never stored in MongoDB in plaintext; only their SHA-256 digests (`tokenHash`) are persisted.
+   - **Cookie Policy**: Cookies are set with `HttpOnly`, `SameSite=lax`, `Path=/`, and `Secure` when in production.
+   - **Rate Limiting**: Sliding window rate limiter protects registration (5 req / 15m) and login (6 req / 10m) from brute-force enumeration.
+   - **Account Enumeration Defense**: Login returns generic *"Invalid email or password"* failure messages.
+   - **Session Fixation Prevention**: Session tokens are newly generated on every successful authentication.
+   - **Session Invalidation**: Complete revocation on logout removes the session from the database and zeroes the cookie.
+3. **Authentication Pages**:
+   - `/register`: Full name, email, password strength meter (Very Weak / Weak / Fair / Good / Strong + checklist), confirm password matching, role selection (`user` / `interviewer`), terms acknowledgement, and error alerts.
+   - `/login`: Email, password, visibility toggle, remember-me (30-day session extension), forgot-password notice, and open-redirect protection.
+   - `/profile`: Protected user settings page displaying account creation date, role badge, editable display name, and avatar URL.
+4. **Role-Based Authorization & Privilege Protection**:
+   - Public registration defaults to `user` (or `interviewer`), with server-side restriction preventing self-assignment of `admin`.
+   - `PATCH /api/users/me` strictly allows modifying only permitted fields (`name`, `avatarUrl`) and rejects any attempt to modify `role`, `email`, `passwordHash`, or `status` with `403 Forbidden`.
+   - `/dashboard` and `/profile` are protected; unauthenticated access redirects to `/login`.
+   - Authenticated user state dynamically replaces mock data in the dashboard header and sidebar.
+
+---
+
+## Authentication Endpoints
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | Register new user account, creates session & sets cookie | No (Rate Limited) |
+| `POST` | `/api/auth/login` | Authenticate credentials, rotate session & set cookie | No (Rate Limited) |
+| `GET` | `/api/auth/me` | Retrieve currently authenticated user from session cookie | Yes (`401` if invalid) |
+| `POST` | `/api/auth/logout` | Revoke session from MongoDB and clear cookie | Yes |
+| `PATCH` | `/api/users/me` | Update permitted profile fields (`name`, `avatarUrl`) | Yes (`403` on role edit) |
 
 ---
 
 ## Technology Stack
 
-- **Framework**: Next.js 16 (App Router with Turbopack)
-- **Language**: TypeScript 5 (Strict type checking enabled)
-- **Styling**: Tailwind CSS v4 with bespoke token variables
+- **Frontend**: Next.js 16 (App Router, Turbopack, React 19)
+- **Styling**: Tailwind CSS v4 with curated design tokens
 - **Icons**: Lucide React
-- **Component Model**: React Server Components by default; client components (`"use client"`) only for interactive controls (modals, dropdowns, tabs, sidebar).
+- **Database**: MongoDB 8+ (Mongoose ODM)
+- **Validation**: Zod server & client schema validation
+- **Password Security**: Bcrypt (cost factor 12)
+- **Sessions**: Cryptographic opaque tokens, SHA-256 storage, HTTP-only cookies
 
 ---
 
-## Prerequisites
+## Environment Variables
 
-- **Node.js**: v20+ (tested and verified on Node v24.11.1)
-- **npm**: v10+ (tested on npm 11.6.2)
+Copy `.env.example` to `.env.local` for local development:
+
+```env
+# MongoDB Connection URI (Local or Atlas)
+MONGODB_URI=mongodb://127.0.0.1:27017/pairzen
+
+# Node Environment ('development' | 'production')
+NODE_ENV=development
+
+# Session Encryption / Secret
+SESSION_SECRET=pairzen_local_development_secret_32_characters_key_99
+
+# Base Application URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
 ---
 
 ## Installation & Setup
 
-1. **Clone the repository** (or navigate to workspace directory):
-   ```bash
-   git clone <repo-url>
-   cd Pairzen
-   ```
-
-2. **Install dependencies**:
+1. **Install dependencies**:
    ```bash
    npm install
    ```
 
-3. **Run the local development server**:
+2. **Ensure MongoDB is running**:
+   - Local: MongoDB service running on `mongodb://127.0.0.1:27017`
+   - Or configure your MongoDB Atlas connection string in `.env.local`.
+
+3. **Run automated test suite**:
+   ```bash
+   npm test
+   ```
+   Runs 11 automated test cases covering registration, login, hashing, duplicate rejection, session revocation, and privilege protection.
+
+4. **Run TypeScript type checking**:
+   ```bash
+   npx tsc --noEmit
+   ```
+
+5. **Run ESLint checks**:
+   ```bash
+   npm run lint
+   ```
+
+6. **Start local development server**:
    ```bash
    npm run dev
    ```
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-4. **Run TypeScript check**:
-   ```bash
-   npx tsc --noEmit
-   ```
-
-5. **Run production build**:
+7. **Build and run production bundle**:
    ```bash
    npm run build
-   ```
-
-6. **Start production server**:
-   ```bash
    npm run start
    ```
 
 ---
 
-## Routes
+## Features Intentionally Deferred to Phase 3 & Beyond
 
-| Route | Purpose | Status |
-|---|---|---|
-| `/` | Public Landing Page, Product Workspace Preview, Capabilities, Workflow | Complete |
-| `/dashboard` | Interviewer Management Dashboard, Stats, Sessions Table, Creation Modal | Complete |
+- Socket.IO collaboration and multi-cursor state sync
+- Monaco Editor code workspace binding
+- Sandboxed remote code execution runtimes
+- WebRTC live audio/video presence streams
+- Question bank authoring & custom algorithmic challenge templates
+- Automated SMTP / Resend email password recovery
 
 ---
 
 ## License
 
 Copyright © 2026 Pairzen Inc. All rights reserved.
-# PairZen
