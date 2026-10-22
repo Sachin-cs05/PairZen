@@ -316,24 +316,32 @@ function InterviewRoomDetailsContent({ roomId }: { roomId: string }) {
           </div>
         </div>
 
-        {/* Phase 4 Editor Placeholder Banner */}
-        <div className="rounded-2xl bg-gradient-to-r from-violet-950/30 via-[#121A2B] to-[#121A2B] border border-violet-800/30 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* Phase 4 Live Collaborative Coding Workspace Launcher */}
+        <div className="rounded-2xl bg-gradient-to-r from-sky-950/40 via-[#121A2B] to-[#121A2B] border border-sky-800/40 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-sky-950/20">
           <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-300 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-10 h-10 rounded-xl bg-sky-600/20 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
               <Laptop className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-slate-200">
-                  Phase 4 Live Collaborative Workspace
+                <span className="font-bold text-sm text-slate-100">
+                  Live Collaborative Coding Workspace
                 </span>
-                <Badge variant="violet" size="sm">Coming in Phase 4</Badge>
+                <Badge variant="success" size="sm">Active (Phase 4)</Badge>
               </div>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Phase 3 manages interview room creation, lifecycle, invitation links, and secure participant verification. Real-time Monaco editor synchronization, sandboxed code execution, and WebRTC will launch in Phase 4.
+                Real-time Monaco editor synchronization with Yjs CRDTs, participant awareness, live cursors, and continuous database autosave.
               </p>
             </div>
           </div>
+
+          <Link
+            href={`/interviews/${roomId}/workspace`}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-sky-500/25 hover:from-sky-400 hover:to-blue-500 hover:shadow-sky-500/40 transition shrink-0"
+          >
+            <Code2 className="w-4 h-4" />
+            <span>Launch Workspace</span>
+          </Link>
         </div>
 
         {/* Room Configuration Grid */}

@@ -39,6 +39,9 @@ export interface IInterviewRoom extends Document {
   scheduledAt?: Date;
   startedAt?: Date;
   endedAt?: Date;
+  codeState?: string;
+  yjsState?: Buffer;
+  codeLastSavedAt?: Date;
   participants: IParticipant[];
   createdAt: Date;
   updatedAt: Date;
@@ -66,6 +69,8 @@ export interface SafeInterviewRoom {
   durationMinutes: number;
   accessPolicy: RoomAccessPolicy;
   status: RoomStatus;
+  codeState?: string;
+  codeLastSavedAt?: string;
   scheduledAt?: string;
   startedAt?: string;
   endedAt?: string;
@@ -196,6 +201,16 @@ const InterviewRoomSchema = new Schema<IInterviewRoom>(
     endedAt: {
       type: Date,
     },
+    codeState: {
+      type: String,
+      default: "",
+    },
+    yjsState: {
+      type: Buffer,
+    },
+    codeLastSavedAt: {
+      type: Date,
+    },
     participants: {
       type: [ParticipantSubSchema],
       default: [],
@@ -235,6 +250,8 @@ InterviewRoomSchema.methods.toSafeObject = function (
     durationMinutes: this.durationMinutes,
     accessPolicy: this.accessPolicy,
     status: this.status,
+    codeState: this.codeState || "",
+    codeLastSavedAt: this.codeLastSavedAt ? this.codeLastSavedAt.toISOString() : undefined,
     scheduledAt: this.scheduledAt ? this.scheduledAt.toISOString() : undefined,
     startedAt: this.startedAt ? this.startedAt.toISOString() : undefined,
     endedAt: this.endedAt ? this.endedAt.toISOString() : undefined,

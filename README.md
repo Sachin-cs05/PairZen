@@ -2,7 +2,7 @@
 
 > **Tagline:** Code together. Think beyond.
 
-Pairzen is a premium, real-time collaborative coding interview platform designed for engineering teams and interviewers. It enables simultaneous multi-cursor pair programming, sandboxed code execution, structured assessment rubrics, and playback telemetry in a sleek, developer-focused environment.
+Pairzen is a premium, real-time collaborative coding interview platform designed for engineering teams and interviewers. It enables simultaneous multi-cursor pair programming, conflict-free collaborative editing, sandboxed code execution, structured assessment rubrics, and playback telemetry in a sleek, developer-focused environment.
 
 ---
 
@@ -11,95 +11,96 @@ Pairzen is a premium, real-time collaborative coding interview platform designed
 - **Phase 1: Foundation & Premium UI** — Completed ✅
 - **Phase 2: Secure Authentication & User Profiles** — Completed ✅
 - **Phase 3: Interview Room Management & Secure Joining** — Completed ✅
-- **Phase 4: Real-Time Collaborative Workspace & Live Code Synchronization** — Next Phase 🚀
+- **Phase 4: Real-Time Collaborative Coding Workspace** — Completed ✅
+- **Phase 5: Sandboxed Code Execution & Testing Runner** — Next Phase 🚀
 
 ---
 
-## Phase 3: Interview Room Management & Secure Joining
+## Phase 4: Real-Time Collaborative Coding Workspace
 
-Phase 3 introduces a robust, database-backed room management architecture in MongoDB, cryptographic invitation tokens, room-level role authorization, server-enforced lifecycle transitions, and real-time dashboard aggregation.
+Phase 4 introduces an industrial-grade, concurrent collaborative coding workspace combining Microsoft's Monaco Editor, Yjs Conflict-Free Replicated Data Types (CRDTs), a persistent Socket.IO transport engine, and continuous durable state persistence in MongoDB.
 
-### Key Implemented Features:
+### Architecture Overview
 
-1. **Persistent MongoDB Interview Room Model (`InterviewRoom`)**:
-   - `roomCode`: Human-readable, unique identifier formatted as `pz-XXXX-YYYY` with collision-retry generation and unique indexing.
-   - `title` & `description`: Structured interview challenge objectives.
-   - `creatorId`: Reference to the host user document (`User`).
-   - `language`: Configurable runtime track (`typescript`, `javascript`, `python`, `java`, `cpp`, `go`, `rust`).
-   - `difficulty`: Challenge target tier (`easy`, `medium`, `hard`).
-   - `durationMinutes`: Configurable assessment duration (15 to 180 minutes).
-   - `accessPolicy`: `invite_only` (private, token-gated) or `discoverable` (authenticated members).
-   - `status`: Server-enforced lifecycle status (`waiting`, `active`, `completed`, `cancelled`).
-   - `invitationTokenHash`: SHA-256 hash of the random 64-character hex invitation secret. Raw tokens are never stored in plaintext.
-   - `invitationRevoked`: Boolean flag allowing hosts to invalidate existing invitation links.
-   - `participants`: Structured array of room participant sub-documents with role (`interviewer`, `candidate`, `observer`), join timestamps, and identity snapshots.
-   - **Indexes**: Compound indexes on `{ creatorId: 1, status: 1 }`, `{ "participants.userId": 1 }`, `{ roomCode: 1 }` (unique), and `{ createdAt: -1 }`.
+```
+┌─────────────────────────────────┐           ┌─────────────────────────────────┐
+│     Client A (Interviewer)      │           │      Client B (Candidate)       │
+│  - Monaco Editor ("pairzen-dark")│          │  - Monaco Editor ("pairzen-dark")│
+│  - Yjs Client Doc + Awareness   │           │  - Yjs Client Doc + Awareness   │
+│  - Socket.IO Client             │           │  - Socket.IO Client             │
+└──────────────┬──────────────────┘           └──────────────┬──────────────────┘
+               │                                             │
+               │ (collab:join, collab:update,                │
+               │  collab:awareness, collab:presence)         │
+               ▼                                             ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│               Pairzen Collaboration Service (collab-server.ts)                 │
+│  - Standalone Node.js HTTP + Socket.IO Engine (:3001)                         │
+│  - Handshake Auth Middleware: validates pz_session with MongoDB               │
+│  - Server-Side Room Authorization: verifies creator vs candidate membership   │
+│  - Room-Scoped Isolation: pz_room:${roomCode} channels                        │
+│  - In-Memory Yjs Room Document Pool (Y.Doc per room)                          │
+│  - Ephemeral Awareness Broker: live cursors, selections, colors & name tags   │
+│  - Continuous Debounced Persistence (1.5s debounce + shutdown flush)          │
+└──────────────────────────────────────┬────────────────────────────────────────┘
+                                       │
+                                       │ Atomic Mongoose updates ($set: yjsState, codeState)
+                                       ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                             MongoDB Storage Layer                             │
+│  - InterviewRoom.yjsState (binary CRDT vector update buffer)                  │
+│  - InterviewRoom.codeState (plaintext snapshot for search/recovery)           │
+│  - InterviewRoom.codeLastSavedAt (high-precision timestamp)                   │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
 
-2. **Room Access & Cryptographic Invitation System**:
-   - **Invitation Links**: Generated as `[app_origin]/join?token=[rawToken]&code=[roomCode]`.
-   - **Token Validation**: Verified server-side via SHA-256 hashing. Prevents unauthorized users from guessing room IDs or room codes to access private rooms.
-   - **Rate Limiting**: `POST /api/interviews/join` is protected by IP-based rate limiting (20 attempts / min) to prevent room-code enumeration and brute-force token guessing.
-   - **Token Rotation**: Authorized interviewers can rotate invitation tokens at any time, instantly revoking previous links.
+### Key Implemented Features
 
-3. **Room-Level Role Authorization & Concurrency**:
-   - Creator is automatically registered as the room `interviewer`.
-   - Joining users receive `candidate` permissions. Role escalation by clients is strictly rejected.
-   - **Idempotent Joins**: Users cannot join a room multiple times as duplicate participants; existing membership returns immediate entry.
-   - **Atomic Concurrency**: Join operations utilize MongoDB atomic filters (`"participants.userId": { $ne: userId }`) to guarantee safety under simultaneous concurrent requests.
+1. **Monaco Editor Integration**:
+   - Custom `pairzen-dark` theme matching Pairzen's navy & sky blue design tokens.
+   - Syntax highlighting across 7 technical tracks (`typescript`, `javascript`, `python`, `java`, `cpp`, `go`, `rust`).
+   - Line numbers, bracket matching, automatic indentation, code folding, and minimap.
+   - Built-in starter code templates for each language track.
 
-4. **Server-Enforced Room Lifecycle**:
-   - **Waiting → Active**: Only the authorized host/interviewer can start the session. Sets `startedAt` timestamp.
-   - **Active → Completed**: Only the interviewer can complete the session. Sets `endedAt` timestamp.
-   - **Waiting → Cancelled**: Host can cancel waiting sessions.
-   - **Invalid Transitions**: Rejected with `400 Bad Request`. Cancelled or completed rooms reject any subsequent join attempts.
+2. **Yjs CRDT Document Synchronization**:
+   - One isolated `Y.Doc` per interview room.
+   - Non-destructive concurrent edits: multiple participants can type simultaneously at different locations without race conditions, character loss, or cursor jumping.
+   - Custom Next.js 16/Turbopack-compatible `MonacoBinding` that synchronizes changes right-to-left without echo duplication.
 
-5. **Pages & Frontend Integration**:
-   - `/interviews/new`: Dedicated interview creation form with client/server validation, technical track configuration, duration selector, and security access policy.
-   - `/join`: Secure entry gateway supporting both one-click invitation acceptance and manual room-code entry.
-   - `/interviews/[roomId]`: Premium room management shell with metadata badges, live status indicator, host lifecycle controls, participant directory, real clipboard copy actions, and Phase 4 workspace placeholder.
-   - `/dashboard`: Completely backed by live MongoDB queries. Features real-time status tabs (`All`, `Live Now`, `Waiting`, `Completed`, `Cancelled`), local search, room code copying, and real database aggregate statistics.
-   - `CreateInterviewModal` & `JoinInterviewModal`: Fully wired to real MongoDB API endpoints.
+3. **Socket.IO Transport & Room Isolation**:
+   - Cryptographically authenticated connection handshake via `pz_session` HTTP cookie.
+   - Server-enforced room authorization: only the creator or registered participants can enter the room's communication channel.
+   - Strict channel isolation: events from `pz_room:A` never leak to `pz_room:B`.
+   - Message size validation (<= 1MB updates) and malformed payload rejection.
+
+4. **Ephemeral Participant Presence & Remote Cursors**:
+   - Live awareness protocol tracking remote cursor positions and text selections.
+   - Dynamic stylesheet generator providing colored caret bars and hoverable name flags for every connected peer.
+   - Disconnect cleanup: leaving users are immediately removed from remote editor decorations and active roster.
+
+5. **Durable Persistence & Autosave**:
+   - 1500ms debounced autosave to MongoDB avoiding excessive writes.
+   - Dual storage format: binary `yjsState` Buffer for CRDT recovery + `codeState` plaintext string for search and export.
+   - Immediate flush on room empty (last participant leaves) and on graceful server shutdown (`SIGINT`/`SIGTERM`).
+   - Honest save indicator in the UI: distinguishing `Saved`, `Autosaving...`, and `Save failed`.
+
+6. **Lifecycle & Access Control Enforcement**:
+   - Completed or cancelled rooms are strictly enforced as **Read-Only** on the server.
+   - Any attempt to push edits to a completed room triggers `ROOM_IS_READ_ONLY` rejection.
 
 ---
 
-## API Endpoints Reference
+## Workspace UI Structure
 
-### Authentication Endpoints
+The collaborative coding workspace is located at:
+`/interviews/[roomId]/workspace`
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | Register new user account, creates session & sets cookie | No (Rate Limited) |
-| `POST` | `/api/auth/login` | Authenticate credentials, rotate session & set cookie | No (Rate Limited) |
-| `GET` | `/api/auth/me` | Retrieve currently authenticated user from session cookie | Yes (`401` if invalid) |
-| `POST` | `/api/auth/logout` | Revoke session from MongoDB and clear cookie | Yes |
-| `PATCH` | `/api/users/me` | Update permitted profile fields (`name`, `avatarUrl`) | Yes (`403` on role edit) |
-
-### Phase 3 Interview Room Endpoints
-
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/interviews` | Create new interview room & generate cryptographic invitation | Yes |
-| `GET` | `/api/interviews` | List rooms where user is creator or participant (with filters) | Yes |
-| `GET` | `/api/interviews/:roomId` | Retrieve authorized room details (verifies membership/access) | Yes (`403` on private) |
-| `POST` | `/api/interviews/join` | Join room via room code and/or invitation token | Yes (Rate Limited) |
-| `POST` | `/api/interviews/:roomId/invitation` | Rotate invitation token and generate fresh invitation link | Host Only (`403`) |
-| `POST` | `/api/interviews/:roomId/start` | Transition room from `waiting` to `active` | Host Only (`403`) |
-| `POST` | `/api/interviews/:roomId/end` | Transition room from `active` to `completed` | Host Only (`403`) |
-| `POST` | `/api/interviews/:roomId/cancel` | Cancel a `waiting` interview room | Host Only (`403`) |
-| `GET` | `/api/interviews/:roomId/participants` | Retrieve authorized participant roster | Members Only |
-
----
-
-## Technology Stack
-
-- **Framework**: Next.js 16 (App Router, Turbopack, React 19)
-- **Styling**: Tailwind CSS v4 with custom navy & violet design tokens
-- **Icons**: Lucide React
-- **Database**: MongoDB 8+ (Mongoose ODM)
-- **Validation**: Zod schema validation (server & client)
-- **Password Security**: Bcrypt (cost factor 12)
-- **Sessions & Tokens**: Cryptographic opaque tokens (SHA-256 hashes at rest)
-- **Testing**: Node.js Native Test Runner (`node --test`)
+- **Top Toolbar**: Pairzen logo, room title, room code click-to-copy, live connection badge (`Live Sync` / `Reconnecting` / `Offline` / `Read Only`), autosave status badge, language badge, active participant avatars with cursor color swatches, and "Details" return action.
+- **Main Editor**: Full-height Monaco Editor with real-time remote cursors and selection highlights.
+- **Right Side Panel**: Collapsible drawer showing connected participants (Host / Candidate / Observer badges with cursor color swatches) and room specifications (difficulty, duration, access policy, status).
+- **Bottom Panel**: Collapsible tabbed console:
+  - *Console & Output*: Clearly displays that code execution is scheduled for Phase 5.
+  - *Sync Diagnostics*: Live metrics on CRDT engine, transport protocol, connected peers count, and cloud autosave timestamp.
 
 ---
 
@@ -122,53 +123,126 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Dedicated Test Database URI (for npm run test)
 TEST_MONGODB_URI=mongodb://127.0.0.1:27017/pairzen_test
+
+# Real-Time Collaboration Service
+COLLAB_PORT=3001
+NEXT_PUBLIC_COLLAB_URL=http://localhost:3001
 ```
 
 ---
 
 ## Running the Application
 
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+### 1. Install Dependencies
+```bash
+npm install
+```
 
-2. **Ensure MongoDB is running**:
-   - Local: MongoDB service running on `mongodb://127.0.0.1:27017`
-   - Or configure your MongoDB Atlas connection string in `.env.local`.
+### 2. Start the Services
 
-3. **Start Development Server**:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
+In development, Pairzen runs two services:
+1. **Next.js Web Application** (Port 3000)
+2. **Pairzen Collaboration Engine** (Port 3001)
 
-4. **Production Build**:
-   ```bash
-   npm run build
-   npm run start
-   ```
+Open two terminals:
+
+**Terminal 1 (Web App):**
+```bash
+npm run dev
+```
+
+**Terminal 2 (Collaboration Service):**
+```bash
+npm run collab
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 3. Production Build
+```bash
+npm run build
+npm run start
+```
+Run `npm run collab` alongside `npm run start` in production.
 
 ---
 
-## Running Automated Tests
+## Automated Test Suite
 
-Pairzen uses Node.js's native test runner for fast, dependency-free automated testing against an isolated test database.
+Pairzen uses Node.js's native test runner (`node:test`) and TypeScript via `tsx --test` for fast, reproducible testing against an isolated test database.
 
 ```bash
 npm run test
 ```
 
-### Test Coverage Highlights:
-- **Suite 1: Authentication & Authorization (`tests/auth.test.mjs`)**: 11 tests covering bcrypt password hashing, session tokens, session revocation, cookie policies, and role escalation defenses.
-- **Suite 2: Phase 3 Room Management (`tests/interview-room.test.mjs`)**: 15 tests covering room creation, code collisions, private access denial, invitation validation, duplicate join idempotency, host role verification, lifecycle transitions (`waiting` → `active` → `completed` / `cancelled`), cancelled room rejection, dashboard query boundaries, and atomic race-condition safety.
+### Test Suite Results
 
-Total: **26 passing tests** with 0 failures.
+```
+▶ Pairzen Authentication & Authorization Test Suite
+  ✔ 1. Password hashing and password verification
+  ✔ 2. Successful registration creates user with normalized email
+  ✔ 3. Duplicate email registration rejection
+  ✔ 4. Successful login verifies credentials
+  ✔ 5. Invalid credentials rejection
+  ✔ 6. Session creation and validation with hashed tokens
+  ✔ 7. Logout and session revocation
+  ✔ 8. Protected route behavior: expired or missing token fails
+  ✔ 9. Profile update allows permitted fields (name, avatarUrl)
+  ✔ 10. Role escalation prevention: client cannot self-assign admin role
+  ✔ 11. Invalid request payloads rejected by validation rules
+✔ Pairzen Authentication & Authorization Test Suite (11/11 passed)
+
+▶ Pairzen Phase 3: Interview Room Management & Secure Joining
+  ✔ 1. Successful room creation with creator as interviewer
+  ✔ 2. Invalid room creation payload rejection
+  ✔ 3. Duplicate room code collision handling enforces uniqueness
+  ✔ 4. Unauthorized room access check for private invite_only room
+  ✔ 5. Private room access rejected without valid invitation token
+  ✔ 6. Successful invitation-based joining assigns candidate role
+  ✔ 7. Revoked invitation token rejects entry
+  ✔ 8. Joining the same room twice is idempotent with no duplicates
+  ✔ 9. Candidate cannot start an interview (role authorization enforced)
+  ✔ 10. Interviewer starts waiting room (waiting -> active)
+  ✔ 11. Invalid lifecycle transition rejected
+  ✔ 12. Interviewer completes active interview (active -> completed)
+  ✔ 13. Cancelled room refuses new participants
+  ✔ 14. Dashboard query authorization: users only see authorized rooms
+  ✔ 15. Concurrent join requests safety
+✔ Pairzen Phase 3: Interview Room Management & Secure Joining (15/15 passed)
+
+▶ Pairzen Phase 4: Real-Time Collaborative Workspace Engine
+  ✔ 1. Unauthenticated connection rejection
+  ✔ 2. Invalid session token rejection
+  ✔ 3. Authorized connection succeeds with valid session
+  ✔ 4. Unauthorized room join rejection
+  ✔ 5. Authorized interviewer and candidate join with respective roles
+  ✔ 6. Room isolation prevents cross-room leakage
+  ✔ 7. Real-time document edit synchronization between two clients
+  ✔ 8. Concurrent edits converge deterministically via Yjs CRDTs
+  ✔ 9. Participant presence and disconnect cleanup
+  ✔ 10. State persistence to MongoDB and restoration after server restart
+  ✔ 11. Completed or cancelled room editing policy enforces read-only
+  ✔ 12. Malformed and oversized update rejection
+✔ Pairzen Phase 4: Real-Time Collaborative Workspace Engine (12/12 passed)
+
+Total: 38 passed, 0 failed, 3 suites
+```
 
 ---
 
-## Security Assumptions & Boundaries
+## Horizontal Scaling & Multi-Instance Considerations
 
-- **Invitation Confidentiality**: The invitation token is secret and shared only between the interviewer and authorized candidates.
-- **Role Immutability**: Candidates cannot self-promote to interviewers. Room creator identity is determined server-side from session cookies.
-- **Strict Scope Boundaries**: Real-time Socket.IO multi-cursor synchronization, Monaco editor integration, and code execution are strictly scoped for Phase 4. The room details page provides a clear preview notice without simulating fake live collaboration.
+- **Single Node (Current Phase)**: In-memory `Y.Doc` sessions with MongoDB persistence. Ideal for development and single-instance deployments.
+- **Horizontal Scaling (Production Multi-Instance)**:
+  - Add `@socket.io/redis-adapter` so Socket.IO events and room broadcasts route across multiple server instances.
+  - Employ a distributed lock or sticky sessions (hash by `roomCode`) so updates for a given interview room route to the same authoritative worker node, or distribute Yjs state updates via Redis Pub/Sub.
+
+---
+
+## Security Highlights
+
+1. **Authentication Verification**: Sockets cannot connect without a valid cryptographic `pz_session` cookie or token.
+2. **Room Authorization**: Possession of a room code does not grant workspace access. User membership is validated against MongoDB.
+3. **Payload Boundaries**: Maximum update payload size is capped at 1MB to prevent memory exhaustion attacks.
+4. **Lifecycle Enforcement**: Closed or cancelled rooms enforce read-only semantics at the protocol layer, not just in UI CSS.
+5. **Safe Console**: The bottom output console clearly communicates that code compilation and execution are not available in Phase 4, preventing false expectations.
