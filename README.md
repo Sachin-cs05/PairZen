@@ -13,7 +13,8 @@ Pairzen is a premium, real-time collaborative coding interview platform designed
 - **Phase 3: Interview Room Management & Secure Joining** — Completed ✅
 - **Phase 4: Real-Time Collaborative Coding Workspace** — Completed ✅
 - **Phase 5: Secure Code Execution & Automated Evaluation** — Completed ✅
-- **Phase 6: WebRTC Audio/Video & Real-Time Communication** — Planned 🚀
+- **Phase 6: AI Interview Assistant & Intelligent Feedback** — Completed ✅
+- **Phase 7: WebRTC Audio/Video & Communication** — Next Phase 🚀
 
 ---
 
@@ -359,4 +360,111 @@ npm run dev
 ```
 
 If Judge0 is not running or `USE_MOCK_SANDBOX=true` is set, Pairzen automatically uses the deterministic `MockSandboxAdapter`, ensuring 100% test coverage and offline development without external Docker dependencies.
+
+---
+
+## Phase 6: AI Interview Assistant & Intelligent Feedback
+
+Phase 6 introduces an enterprise-grade AI coding assistant, progressive hint generation, automated code reviews, asymptotic complexity analysis, and durable post-interview evaluation reports grounded exclusively in verified execution evidence.
+
+### Architecture Overview
+
+```
+┌────────────────────────────────────────────────────────┐
+│               Pairzen Workspace Frontend               │
+│  - AI Coding Assistant Panel                           │
+│  - 💬 Chat (Code-aware mentoring)                      │
+│  - 💡 Progressive Hints (3-Level Guidance Ladder)       │
+│  - 🔍 Code Review (Line-by-line issues & strengths)    │
+│  - ⚡ Complexity Analysis (Time & Space breakdown)     │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            │ Authenticated JSON API (Cookie / Session)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│              Next.js API & AI Service                  │
+│  - POST /api/ai/chat                                   │
+│  - POST /api/ai/hints                                  │
+│  - POST /api/ai/code-review                            │
+│  - POST /api/ai/complexity-analysis                    │
+│  - POST & GET /api/interviews/:roomId/feedback         │
+│                                                        │
+│  Enforces: Room Membership, Prompt Sanitization,       │
+│            Hidden Test Secrecy, Payload Bounds         │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            │ IAIAdapter Abstraction
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                   AI Provider Layer                    │
+│                                                        │
+│  [GeminiAIAdapter]  [OpenAIAdapter]  [MockAIAdapter]   │
+│  - Google Gemini    - OpenAI-compat  - Deterministic   │
+│    v1beta REST        REST endpoint    offline runner  │
+│  - Server-only keys - Server-only      for testing &   │
+│  - Zero client leak - Zero client leak CI dev          │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                  MongoDB Persistence                   │
+│  - AIConversation: User-scoped private message history │
+│  - InterviewFeedback: Post-interview assessment report │
+│    with scores, verified evidence, interviewer notes   │
+└────────────────────────────────────────────────────────┘
+```
+
+### Core Features
+
+1. **AI Coding Assistant**:
+   - Interactive mentor grounded in the candidate's active Monaco source code.
+   - Quick prompt shortcuts (`Explain my current code`, `What edge cases should I test?`, `How can I optimize this solution?`).
+   - Private conversation isolation: Candidates and interviewers have independent, confidential conversation sessions per room.
+
+2. **Progressive Hint Ladder**:
+   - Sequential 3-level progression preventing instant solution disclosure:
+     - **Level 1 (Conceptual)**: Core pattern, mathematical invariant, or observation.
+     - **Level 2 (Strategic)**: Algorithmic direction and data structure recommendation.
+     - **Level 3 (Detailed Guidance)**: Pseudocode and implementation steps.
+   - Guarded against skipping: Users must unlock Level 1 before Level 2, and Level 2 before Level 3.
+
+3. **Automated Code Review**:
+   - Rigorous structural code review returning validated JSON:
+     - Executive summary and confirmed strengths.
+     - Potential issues with line numbers, severity (`info`, `warning`, `error`), and actionable suggestions.
+     - Potential edge-case vulnerabilities.
+     - Complexity summary and confidence notes.
+   - Non-destructive: AI advice never modifies the shared Monaco document automatically.
+
+4. **Asymptotic Complexity Analysis**:
+   - Big-O analysis: Best, average, and worst-case time complexity.
+   - Auxiliary and total space complexity.
+   - Loop and recursion breakdown.
+   - Documented assumptions (e.g. uniform hash distribution).
+
+5. **Evidence-Grounded Post-Interview Feedback**:
+   - Comprehensive assessment report generated for completed interviews.
+   - Grounded strictly in verified submissions, test pass percentages, and code structure.
+   - Includes rubrics for readability (1-10) and maintainability (1-10).
+   - Interviewers can append qualitative notes and save reviews (`PATCH /api/interviews/:roomId/feedback`).
+   - **Fairness Guarantee**: Explicitly avoids automated hiring decisions or speculative personality claims.
+
+### Security & Privacy Protections
+
+- **Server-Only Credentials**: Gemini and OpenAI API keys stay strictly on the server and are never bundled into client code.
+- **Prompt-Injection Defense**: User messages, code comments, and source snippets are treated as untrusted data enclosed in structured boundaries. Code comments cannot override system instructions or leak hidden tests.
+- **Hidden Test Confidentiality**: Hidden test inputs and expected outputs are strictly excluded from AI prompts.
+- **Private History Scoping**: User conversations are keyed by `{ roomId, userId }` in MongoDB, preventing cross-candidate data leakage.
+
+### Complete Automated Test Suite (67/67 Tests Passing)
+
+```bash
+npm test
+```
+- **Phase 2 Auth Suite**: 11/11 passed
+- **Phase 3 Room Management Suite**: 15/15 passed
+- **Phase 4 Collaborative Workspace Suite**: 12/12 passed
+- **Phase 5 Code Execution Suite**: 17/17 passed
+- **Phase 6 AI Assistant & Feedback Suite**: 12/12 passed
+- **Total**: 67 passed, 0 failed across 5 suites.
 

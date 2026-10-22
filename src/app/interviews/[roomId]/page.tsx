@@ -26,6 +26,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useAuth } from "@/context/auth-context";
 import { SafeInterviewRoom, SafeParticipant } from "@/lib/db/models/interview-room";
 import { formatDate } from "@/lib/utils";
+import { InterviewFeedbackView } from "@/components/interviews/interview-feedback-view";
 
 interface PageProps {
   params: Promise<{ roomId: string }>;
@@ -480,6 +481,13 @@ function InterviewRoomDetailsContent({ roomId }: { roomId: string }) {
             </div>
           </div>
         </div>
+
+        {/* Post-Interview AI Evaluation & Feedback Report */}
+        <InterviewFeedbackView
+          roomId={roomId}
+          isInterviewer={isInterviewer}
+          roomStatus={room.status}
+        />
       </main>
 
       {/* Lifecycle Confirmation Dialog */}

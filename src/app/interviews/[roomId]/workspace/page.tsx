@@ -425,6 +425,7 @@ function WorkspaceContent({ roomId }: { roomId: string }) {
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
           onSelectSubmission={handleSelectSubmission}
+          getCurrentCode={collab.getCurrentCode}
         />
       </div>
 

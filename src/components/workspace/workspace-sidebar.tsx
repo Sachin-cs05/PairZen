@@ -19,6 +19,8 @@ import { ActiveParticipantPresence } from "@/lib/collab/use-collab-room";
 import { SafeInterviewRoom } from "@/lib/db/models/interview-room";
 import { SafeProblem } from "@/lib/db/models/problem";
 import { SafeSubmission } from "@/lib/db/models/submission";
+import { WorkspaceAIAssistant } from "./workspace-ai-assistant";
+import { Sparkles } from "lucide-react";
 
 interface WorkspaceSidebarProps {
   room: SafeInterviewRoom;
@@ -29,6 +31,7 @@ interface WorkspaceSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   onSelectSubmission?: (sub: SafeSubmission) => void;
+  getCurrentCode: () => string;
 }
 
 export function WorkspaceSidebar({
@@ -40,8 +43,9 @@ export function WorkspaceSidebar({
   isOpen,
   onToggle,
   onSelectSubmission,
+  getCurrentCode,
 }: WorkspaceSidebarProps) {
-  const [activeTab, setActiveTab] = useState<"problem" | "participants" | "submissions">("problem");
+  const [activeTab, setActiveTab] = useState<"problem" | "ai" | "participants" | "submissions">("problem");
 
   if (!isOpen) {
     return (
@@ -122,7 +126,7 @@ export function WorkspaceSidebar({
           {/* Problem Tab */}
           <button
             onClick={() => setActiveTab("problem")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition rounded ${
+            className={`flex items-center gap-1.5 px-2 py-1 text-xs font-medium transition rounded ${
               activeTab === "problem"
                 ? "bg-slate-800/90 text-sky-400"
                 : "text-slate-400 hover:text-slate-200"
@@ -132,10 +136,23 @@ export function WorkspaceSidebar({
             <span>Problem</span>
           </button>
 
+          {/* AI Mentor Tab */}
+          <button
+            onClick={() => setActiveTab("ai")}
+            className={`flex items-center gap-1.5 px-2 py-1 text-xs font-medium transition rounded ${
+              activeTab === "ai"
+                ? "bg-violet-950/60 text-violet-300 border border-violet-500/30"
+                : "text-slate-400 hover:text-violet-300"
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+            <span>AI Mentor</span>
+          </button>
+
           {/* Participants Tab */}
           <button
             onClick={() => setActiveTab("participants")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition rounded ${
+            className={`flex items-center gap-1.5 px-2 py-1 text-xs font-medium transition rounded ${
               activeTab === "participants"
                 ? "bg-slate-800/90 text-sky-400"
                 : "text-slate-400 hover:text-slate-200"
@@ -148,14 +165,14 @@ export function WorkspaceSidebar({
           {/* Submissions Tab */}
           <button
             onClick={() => setActiveTab("submissions")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition rounded ${
+            className={`flex items-center gap-1.5 px-2 py-1 text-xs font-medium transition rounded ${
               activeTab === "submissions"
                 ? "bg-slate-800/90 text-sky-400"
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
             <Send className="h-3.5 w-3.5" />
-            <span>Submissions ({submissions.length})</span>
+            <span>Subs ({submissions.length})</span>
           </button>
         </div>
 
@@ -169,7 +186,16 @@ export function WorkspaceSidebar({
       </div>
 
       {/* Tab Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {activeTab === "ai" ? (
+        <div className="flex-1 overflow-hidden">
+          <WorkspaceAIAssistant
+            roomId={room.id}
+            language={room.language}
+            getCurrentCode={getCurrentCode}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* TAB 1: PROBLEM DESCRIPTION */}
         {activeTab === "problem" && (
           <div className="space-y-4 select-text">
@@ -411,6 +437,7 @@ export function WorkspaceSidebar({
           </div>
         )}
       </div>
+      )}
     </aside>
   );
 }
