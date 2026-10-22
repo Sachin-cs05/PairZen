@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, LogIn } from "lucide-react";
 import { StatsGrid } from "@/components/dashboard/stats-grid";
 import { InterviewTable } from "@/components/dashboard/interview-table";
@@ -13,10 +14,30 @@ import { useAuth } from "@/context/auth-context";
 import { MOCK_DASHBOARD_STATS, MOCK_INTERVIEWS } from "@/lib/mock-data";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [interviews, setInterviews] = useState(MOCK_INTERVIEWS);
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push("/login?redirect=/dashboard");
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 text-slate-300">
+        <div className="w-8 h-8 rounded-full border-2 border-violet-500 border-t-transparent animate-spin mb-3" />
+        <p className="text-sm font-medium">Validating Pairzen session...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !user) {
+    return null;
+  }
 
   const displayName = user?.name || "Developer";
   const displayRoleBadge =

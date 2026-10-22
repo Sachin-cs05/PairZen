@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateSession } from "@/lib/auth/session";
+import { validateSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { updateProfileSchema } from "@/lib/auth/schemas";
 import { User } from "@/lib/db/models/user";
 
 export async function PATCH(request: NextRequest) {
   try {
     // 1. Authenticate user
-    const auth = await validateSession();
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const auth = await validateSession(token);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

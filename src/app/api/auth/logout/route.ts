@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
-import { invalidateSession, clearSessionCookie } from "@/lib/auth/session";
+import { NextRequest, NextResponse } from "next/server";
+import { invalidateSession, clearSessionCookie, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    await invalidateSession();
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    await invalidateSession(token);
     await clearSessionCookie();
 
     return NextResponse.json({
