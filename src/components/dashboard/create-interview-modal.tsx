@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, CheckCircle2, Copy, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Sparkles, CheckCircle2, Copy, Check, ArrowRight } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,33 +18,73 @@ export function CreateInterviewModal({
   onClose,
   onSuccess,
 }: CreateInterviewModalProps) {
+  const router = useRouter();
   const [candidateName, setCandidateName] = useState("");
   const [candidateEmail, setCandidateEmail] = useState("");
   const [targetRole, setTargetRole] = useState("Senior Full-Stack Engineer");
   const [language, setLanguage] = useState("typescript");
   const [duration, setDuration] = useState("60");
-  const [createdRoom, setCreatedRoom] = useState<string | null>(null);
+  const [createdRoom, setCreatedRoom] = useState<{
+    id: string;
+    roomCode: string;
+    invitationUrl?: string;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!candidateName.trim()) {
       setError("Please enter the candidate's name");
       return;
     }
     setError("");
+    setIsSubmitting(true);
 
-    // Generate realistic room code
-    const randomSuffix = Math.random().toString(36).substring(2, 6);
-    const room = `pz-${Math.floor(1000 + Math.random() * 9000)}-${randomSuffix}`;
-    setCreatedRoom(room);
-    onSuccess?.(room);
+    try {
+      const res = await fetch("/api/interviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `${targetRole} — ${candidateName.trim()}`,
+          description: candidateEmail ? `Candidate: ${candidateEmail}` : "",
+          language,
+          difficulty: "medium",
+          durationMinutes: Number(duration),
+          accessPolicy: "invite_only",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to create room.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      setCreatedRoom({
+        id: data.room.id,
+        roomCode: data.room.roomCode,
+        invitationUrl: data.invitationUrl,
+      });
+
+      onSuccess?.(data.room.roomCode);
+    } catch (err: unknown) {
+      console.error("Create room error:", err);
+      setError("Network error while creating interview room.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCopyLink = () => {
     if (!createdRoom) return;
-    navigator.clipboard?.writeText(`https://pairzen.dev/room/${createdRoom}`);
+    const url =
+      createdRoom.invitationUrl ||
+      `${window.location.origin}/join?code=${createdRoom.roomCode}`;
+    navigator.clipboard?.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -55,6 +96,13 @@ export function CreateInterviewModal({
     onClose();
   };
 
+  const handleGoToRoom = () => {
+    if (!createdRoom) return;
+    const roomId = createdRoom.id;
+    handleReset();
+    router.push(`/interviews/${roomId}`);
+  };
+
   return (
     <Dialog
       isOpen={isOpen}
@@ -62,7 +110,7 @@ export function CreateInterviewModal({
       title={createdRoom ? "Interview Room Initialized" : "Create Interview Session"}
       description={
         createdRoom
-          ? "The room has been configured for live collaborative coding."
+          ? "The room has been persisted in MongoDB and is ready for live coordination."
           : "Configure the interview workspace, candidate role, and primary programming language."
       }
       maxWidth="md"
@@ -72,7 +120,7 @@ export function CreateInterviewModal({
           <div className="rounded-xl bg-emerald-950/40 border border-emerald-800/40 p-4 text-emerald-300 space-y-2">
             <div className="flex items-center gap-2 font-semibold text-sm">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              <span>Room Created: {createdRoom}</span>
+              <span>Room Created: {createdRoom.roomCode}</span>
             </div>
             <p className="text-xs text-emerald-400/90 leading-relaxed">
               Candidate: <strong className="text-white">{candidateName}</strong> ({targetRole}) • {language.toUpperCase()} • {duration}m
@@ -81,12 +129,15 @@ export function CreateInterviewModal({
 
           <div className="rounded-xl bg-[#0B1020] border border-[#1E293B] p-4 space-y-2">
             <span className="text-xs text-slate-400 block font-semibold uppercase tracking-wider">
-              Shareable Candidate Access URL
+              Secure Candidate Invitation Link
             </span>
             <div className="flex items-center gap-2">
               <input
                 readOnly
-                value={`https://pairzen.dev/room/${createdRoom}`}
+                value={
+                  createdRoom.invitationUrl ||
+                  `https://pairzen.dev/join?code=${createdRoom.roomCode}`
+                }
                 className="w-full rounded-lg bg-[#121A2B] border border-[#1E293B] px-3 py-2 text-xs font-mono text-slate-200"
               />
               <Button
@@ -100,19 +151,28 @@ export function CreateInterviewModal({
             </div>
           </div>
 
-          {/* Phase 1 Scope Clarification */}
-          <div className="rounded-lg bg-violet-950/30 border border-violet-800/30 p-3 text-[11px] text-violet-300">
-            <strong>Phase 1 Preview Note:</strong> In Phase 2, this action persists metadata to MongoDB and establishes a Socket.IO room with multi-user presence and Monaco Editor integration.
-          </div>
-
-          <div className="flex justify-end pt-3 border-t border-[#1E293B]">
-            <Button variant="primary" size="sm" onClick={handleReset}>
+          <div className="flex items-center justify-between pt-3 border-t border-[#1E293B]">
+            <Button variant="outline" size="sm" onClick={handleReset}>
               Done
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleGoToRoom}
+              rightIcon={<ArrowRight className="w-4 h-4" />}
+            >
+              Open Room Details
             </Button>
           </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/40 text-xs text-rose-300">
+              {error}
+            </div>
+          )}
+
           <Input
             label="Candidate Full Name"
             placeholder="e.g. Maya Lin"
@@ -120,6 +180,7 @@ export function CreateInterviewModal({
             onChange={(e) => setCandidateName(e.target.value)}
             error={error}
             autoFocus
+            required
           />
 
           <Input
@@ -154,6 +215,7 @@ export function CreateInterviewModal({
               <option value="go">Go 1.22</option>
               <option value="rust">Rust 1.80</option>
               <option value="java">Java 21 LTS</option>
+              <option value="cpp">C++ 20</option>
             </Select>
           </div>
 
@@ -169,7 +231,7 @@ export function CreateInterviewModal({
 
           <div className="pt-4 border-t border-[#1E293B] flex items-center justify-between">
             <span className="text-[11px] text-slate-400">
-              Safe ephemeral room generation
+              Database-backed room creation
             </span>
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={onClose}>
@@ -179,9 +241,10 @@ export function CreateInterviewModal({
                 type="submit"
                 variant="primary"
                 size="sm"
+                isLoading={isSubmitting}
                 leftIcon={<Sparkles className="w-3.5 h-3.5" />}
               >
-                Generate Room
+                Create Room
               </Button>
             </div>
           </div>
