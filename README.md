@@ -12,7 +12,8 @@ Pairzen is a premium, real-time collaborative coding interview platform designed
 - **Phase 2: Secure Authentication & User Profiles** — Completed ✅
 - **Phase 3: Interview Room Management & Secure Joining** — Completed ✅
 - **Phase 4: Real-Time Collaborative Coding Workspace** — Completed ✅
-- **Phase 5: Sandboxed Code Execution & Testing Runner** — Next Phase 🚀
+- **Phase 5: Secure Code Execution & Automated Evaluation** — Completed ✅
+- **Phase 6: WebRTC Audio/Video & Real-Time Communication** — Planned 🚀
 
 ---
 
@@ -225,24 +226,137 @@ npm run test
   ✔ 12. Malformed and oversized update rejection
 ✔ Pairzen Phase 4: Real-Time Collaborative Workspace Engine (12/12 passed)
 
-Total: 38 passed, 0 failed, 3 suites
+▶ Phase 5: Secure Code Execution & Automated Evaluation Suite
+  ✔ 1. Language Selection & Validation (2 tests)
+  ✔ 2. Sandbox Execution Adapter & Error Handling (6 tests)
+  ✔ 3. Problem Model & Confidential Test Case Protection (2 tests)
+  ✔ 4. Automated Test Case Evaluator (4 tests)
+  ✔ 5. Submission Model, Persistence & Security Controls (3 tests)
+✔ Phase 5: Secure Code Execution & Automated Evaluation Suite (17/17 passed)
+
+Total: 55 passed, 0 failed, 4 suites
 ```
 
 ---
 
-## Horizontal Scaling & Multi-Instance Considerations
+## Phase 5: Secure Code Execution & Automated Evaluation
 
-- **Single Node (Current Phase)**: In-memory `Y.Doc` sessions with MongoDB persistence. Ideal for development and single-instance deployments.
-- **Horizontal Scaling (Production Multi-Instance)**:
-  - Add `@socket.io/redis-adapter` so Socket.IO events and room broadcasts route across multiple server instances.
-  - Employ a distributed lock or sticky sessions (hash by `roomCode`) so updates for a given interview room route to the same authoritative worker node, or distribute Yjs state updates via Redis Pub/Sub.
+Phase 5 adds an enterprise-grade online judge and automated evaluation subsystem to Pairzen. Candidates and interviewers can run arbitrary code in an isolated sandbox, provide custom standard input, test against problem test suites with normalized comparison, and submit authoritative solutions evaluated against confidential server-side hidden test cases.
 
----
+### Architecture Overview
 
-## Security Highlights
+```
+┌────────────────────────────────────────────────────────┐
+│               Pairzen Workspace Frontend               │
+│  - Monaco Editor Code Snapshot                         │
+│  - Language Selector (7 supported tracks)              │
+│  - Stdin Input Console                                 │
+│  - Run Code / Run Tests / Submit Solution Controls     │
+│  - Stdout, Stderr, Compile Output & Diagnostics Panel   │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            │ Authenticated JSON API (Cookie / Session)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│           Next.js API & Authorization Layer            │
+│  - POST /api/executions (Custom stdin execution)       │
+│  - POST /api/interviews/:roomId/run-tests              │
+│  - POST /api/interviews/:roomId/submissions            │
+│  - GET  /api/interviews/:roomId/submissions            │
+│  - GET  /api/problems & GET /api/problems/:problemId   │
+│                                                        │
+│  Enforces: Room Membership, Language Whitelisting,     │
+│            Payload Bounds (Code <=64KB, Stdin <=16KB)  │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            │ IExecutionAdapter abstraction
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                Execution Adapter Engine                │
+│                                                        │
+│  [Judge0Adapter]                [MockSandboxAdapter]   │
+│  - Remote Judge0 CE Sandbox     - Deterministic local  │
+│  - Base64 payload encoding        fallback & tests     │
+│  - Non-root, zero network       - Safe simulation      │
+│  - Resource limits:             - Zero host execution  │
+│    5s CPU, 128MB RAM, 1MB file                         │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│          MongoDB Models & Evaluation Storage           │
+│  - Problem: Title, description, starter code, tests    │
+│  - SafeProblem.toSafeObject(): Strips hidden inputs/out│
+│  - Submission: Authoritative evaluation snapshot       │
+│  - SafeSubmission.toSafeObject(): Confidentially safe  │
+└────────────────────────────────────────────────────────┘
+```
 
-1. **Authentication Verification**: Sockets cannot connect without a valid cryptographic `pz_session` cookie or token.
-2. **Room Authorization**: Possession of a room code does not grant workspace access. User membership is validated against MongoDB.
-3. **Payload Boundaries**: Maximum update payload size is capped at 1MB to prevent memory exhaustion attacks.
-4. **Lifecycle Enforcement**: Closed or cancelled rooms enforce read-only semantics at the protocol layer, not just in UI CSS.
-5. **Safe Console**: The bottom output console clearly communicates that code compilation and execution are not available in Phase 4, preventing false expectations.
+### Supported Programming Languages
+
+Pairzen centrally validates and configures 7 major language tracks:
+
+| Language | Monaco ID | Judge0 ID | Default Version | File Extension | Mode |
+|---|---|---|---|---|---|
+| **JavaScript** | `javascript` | 63 | Node.js 20+ | `.js` | Interpreted |
+| **TypeScript** | `typescript` | 74 | TypeScript 5.x | `.ts` | Transpiled / Compiled |
+| **Python** | `python` | 71 | Python 3.10+ | `.py` | Interpreted |
+| **Java** | `java` | 62 | OpenJDK 17 | `.java` | Compiled |
+| **C++** | `cpp` | 54 | GCC 11+ | `.cpp` | Compiled |
+| **Go** | `go` | 60 | Go 1.20+ | `.go` | Compiled |
+| **Rust** | `rust` | 73 | Rust 1.70+ | `.rs` | Compiled |
+
+Arbitrary client-supplied language IDs and unsafe runtimes (such as bash, sh, eval, ruby, or perl) are strictly rejected with HTTP 400 Bad Request.
+
+### Sandbox Isolation & Security Controls
+
+1. **No Application Server Execution**: Untrusted source code is NEVER executed on the Next.js process, Socket.IO server, or developer's host environment. Node `eval`, `new Function`, or shell interpolation are strictly prohibited.
+2. **Dedicated Adapter Abstraction (`IExecutionAdapter`)**: Decouples application logic from the underlying sandbox engine. Supports Judge0 Community Edition and a deterministic `MockSandboxAdapter` for tests and offline development.
+3. **Resource Restrictions**:
+   - CPU Time Limit: 5 seconds (wall clock limit: 15s).
+   - Memory Limit: 128 MB (capped at 256 MB max).
+   - Maximum Payload Size: Source code <= 64 KB, Stdin <= 16 KB.
+   - Network Access: Disabled in sandbox containers.
+   - Filesystem: Ephemeral non-root sandboxes destroyed after execution.
+4. **Strict Hidden Test Secrecy**:
+   - Test cases are partitioned into public sample cases (`isHidden: false`) and evaluation cases (`isHidden: true`).
+   - `Problem.toSafeObject()` and `Submission.toSafeObject()` strictly delete and omit `input`, `expectedOutput`, and `actualOutput` for all hidden cases.
+   - Candidates receive sanitized statuses (`Passed` or `Failed`), execution duration, and memory metrics, without exposing confidential interview test data.
+5. **Normalized Comparisons**: Evaluator normalizes CRLF (`\r\n`) to LF (`\n`) and trims trailing line whitespace to prevent false negatives across diverse platforms while preserving meaningful internal structure.
+
+### Workspace UI Controls
+
+- **Editor Toolbar**:
+  - Language selector dropdown synced with room state.
+  - `Run Code` button (with custom standard input support).
+  - `Run Tests` button (evaluates against problem test suite).
+  - `Submit Solution` button (persists authoritative score to MongoDB).
+  - Real-time execution status badge (`Accepted`, `Wrong Answer`, `Compile Error`, `Time Limit Exceeded`, `Runtime Error`).
+- **Bottom Panel**:
+  - `Console & Output`: Toggleable stdin textarea, stdout terminal, stderr highlights, compile errors, exit code, execution duration (ms), and memory (MB).
+  - `Test Results`: Overall pass percentage, test case tabs (Case 1, Case 2...), sample test diff view (Input / Expected / Actual), and hidden test confidentiality cards.
+  - `Diagnostics`: Real-time Yjs CRDT model, Socket.IO transport, and cloud save state.
+- **Sidebar**:
+  - `Problem`: Markdown description, constraints, and sample cases.
+  - `Peers`: Live participant roster with cursor colors and roles.
+  - `Submissions`: Real-time history of evaluated submissions with timestamps, language, and pass rates.
+
+### Running with Judge0 (Optional Production Sandbox)
+
+To connect Pairzen to a local Judge0 Community Edition instance:
+```bash
+# 1. Start Judge0 via Docker Compose
+git clone https://github.com/judge0/judge0.git
+cd judge0
+docker-compose up -d
+
+# 2. Configure .env.local in Pairzen
+JUDGE0_API_URL=http://localhost:2358
+USE_MOCK_SANDBOX=false
+
+# 3. Start Pairzen
+npm run dev
+```
+
+If Judge0 is not running or `USE_MOCK_SANDBOX=true` is set, Pairzen automatically uses the deterministic `MockSandboxAdapter`, ensuring 100% test coverage and offline development without external Docker dependencies.
+

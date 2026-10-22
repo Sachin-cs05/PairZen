@@ -39,6 +39,7 @@ export interface IInterviewRoom extends Document {
   scheduledAt?: Date;
   startedAt?: Date;
   endedAt?: Date;
+  problemId?: mongoose.Types.ObjectId;
   codeState?: string;
   yjsState?: Buffer;
   codeLastSavedAt?: Date;
@@ -69,6 +70,7 @@ export interface SafeInterviewRoom {
   durationMinutes: number;
   accessPolicy: RoomAccessPolicy;
   status: RoomStatus;
+  problemId?: string;
   codeState?: string;
   codeLastSavedAt?: string;
   scheduledAt?: string;
@@ -201,6 +203,10 @@ const InterviewRoomSchema = new Schema<IInterviewRoom>(
     endedAt: {
       type: Date,
     },
+    problemId: {
+      type: Schema.Types.ObjectId,
+      ref: "Problem",
+    },
     codeState: {
       type: String,
       default: "",
@@ -250,6 +256,7 @@ InterviewRoomSchema.methods.toSafeObject = function (
     durationMinutes: this.durationMinutes,
     accessPolicy: this.accessPolicy,
     status: this.status,
+    problemId: this.problemId ? this.problemId.toString() : undefined,
     codeState: this.codeState || "",
     codeLastSavedAt: this.codeLastSavedAt ? this.codeLastSavedAt.toISOString() : undefined,
     scheduledAt: this.scheduledAt ? this.scheduledAt.toISOString() : undefined,

@@ -208,6 +208,30 @@ export function useCollabRoom({
     });
   }, []);
 
+  // Retrieve current code snapshot from shared Yjs document
+  const getCurrentCode = useCallback(() => {
+    if (ydocRef.current) {
+      return ydocRef.current.getText("monaco").toString();
+    }
+    if (editorRef.current) {
+      return editorRef.current.getValue();
+    }
+    return "";
+  }, []);
+
+  // Update code content atomically in the Yjs shared document
+  const setCode = useCallback((newCode: string) => {
+    if (ydocRef.current) {
+      const yText = ydocRef.current.getText("monaco");
+      ydocRef.current.transact(() => {
+        yText.delete(0, yText.length);
+        yText.insert(0, newCode);
+      });
+    } else if (editorRef.current) {
+      editorRef.current.setValue(newCode);
+    }
+  }, []);
+
   useEffect(() => {
     if (!roomCode) return;
 
@@ -427,5 +451,7 @@ export function useCollabRoom({
     ...state,
     bindMonacoEditor,
     forceSave,
+    getCurrentCode,
+    setCode,
   };
 }
